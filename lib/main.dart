@@ -12,6 +12,7 @@ import 'package:printing/printing.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -94,14 +95,14 @@ class _StartPageState extends State<StartPage> {
       await Future<void>.delayed(const Duration(milliseconds: 150));
       final p = await SharedPreferences.getInstance();
 
-      final active = p.getBool('academy_license_active') ?? false;
+      // Local license-key gate disabled as requested. This does not bypass
+      // school account login or the existing school subscription workflow.
       final username = p.getString('academy_customer_username') ?? '';
 
       if (!mounted) return;
 
-      final Widget next = !active
-          ? const LicensePage()
-          : (username.isEmpty ? const SetupPage() : const PortalHomePage());
+      final Widget next =
+          username.isEmpty ? const SetupPage() : const PortalHomePage();
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(builder: (_) => next),
@@ -408,6 +409,13 @@ class _LicensePageState extends State<LicensePage> {
 class PortalHomePage extends StatelessWidget {
   const PortalHomePage({super.key});
 
+  static int _adminLogoTaps = 0;
+
+  Future<void> openDeveloperWhatsApp() async {
+    final uri = Uri.parse('https://wa.me/923135353153');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   void open(BuildContext context, Widget page) {
     Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
   }
@@ -480,10 +488,19 @@ class PortalHomePage extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const CircleAvatar(
-                      radius: 42,
-                      backgroundColor: Colors.white,
-                      child: Icon(Icons.school, size: 48, color: navy),
+                    GestureDetector(
+                      onTap: () {
+                        _adminLogoTaps++;
+                        if (_adminLogoTaps >= 5) {
+                          _adminLogoTaps = 0;
+                          open(context, const AdminLoginPage());
+                        }
+                      },
+                      child: const CircleAvatar(
+                        radius: 42,
+                        backgroundColor: Colors.white,
+                        child: Icon(Icons.school, size: 48, color: navy),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     const Text(
@@ -521,14 +538,6 @@ class PortalHomePage extends StatelessWidget {
                     ),
                     portalButton(
                       context: context,
-                      title: 'Admin Login',
-                      subtitle: 'System administration and license settings',
-                      icon: Icons.admin_panel_settings,
-                      color: gold,
-                      onPressed: () => open(context, const AdminLoginPage()),
-                    ),
-                    portalButton(
-                      context: context,
                       title: 'Staff Login',
                       subtitle: 'Staff portal',
                       icon: Icons.badge,
@@ -542,6 +551,14 @@ class PortalHomePage extends StatelessWidget {
                       icon: Icons.family_restroom,
                       color: Colors.orange,
                       onPressed: () => open(context, const RolePortalPage(role: 'Parent')),
+                    ),
+                    portalButton(
+                      context: context,
+                      title: 'WhatsApp Developer Support',
+                      subtitle: '+92 313 5353153',
+                      icon: Icons.chat,
+                      color: const Color(0xFF25D366),
+                      onPressed: openDeveloperWhatsApp,
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -3825,29 +3842,10 @@ class _ClassDocumentsModuleState extends State<ClassDocumentsModule> {
             pw.Text('Voucher No: ${s['id']}-$monthKey'),
             pw.Text('Issue Date: ${DateTime.now().toString().substring(0,10)}'),
             pw.Text('Fee Month: $monthKey'),
-            pw.SizedBox(height: 14),
-            pw.Container(
-              padding: const pw.EdgeInsets.all(10),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: designColor, width: 1),
-                borderRadius: pw.BorderRadius.circular(8),
-              ),
-              child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Container(
-                  width: 64, height: 72,
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: designColor)),
-                  child: photo != null
-                      ? pw.Image(photo, fit: pw.BoxFit.cover)
-                      : pw.Center(child: pw.Text('PHOTO', style: const pw.TextStyle(fontSize: 8))),
-                ),
-                pw.SizedBox(width: 12),
-                pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                  pw.Text('Student: ${s['name']}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
-                  pw.Text('Father: ${s['father'] ?? ''}'),
-                  pw.Text('Class: ${s['class']}    Roll: ${s['roll']}'),
-                ])),
-              ]),
-            ),
+            pw.SizedBox(height: 12),
+            pw.Text('Student: ${s['name']}'),
+            pw.Text('Father: ${s['father'] ?? ''}'),
+            pw.Text('Class: ${s['class']}    Roll: ${s['roll']}'),
             pw.SizedBox(height: 14),
             pw.Table.fromTextArray(headers: ['Fee Description', 'Amount (Rs.)'], data: [
               ['Monthly Tuition Fee', monthly.toStringAsFixed(0)],
@@ -3880,30 +3878,10 @@ class _ClassDocumentsModuleState extends State<ClassDocumentsModule> {
             pw.Center(child: pw.Text(widget.school, style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: designColor))),
             pw.Center(child: pw.Text('DETAILED MARKS CERTIFICATE • $designName', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold))),
             pw.Divider(thickness: 2),
-            pw.Container(
-              padding: const pw.EdgeInsets.all(10),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: designColor, width: 1),
-                borderRadius: pw.BorderRadius.circular(8),
-              ),
-              child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Container(
-                  width: 72, height: 82,
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: designColor)),
-                  child: photo != null
-                      ? pw.Image(photo, fit: pw.BoxFit.cover)
-                      : pw.Center(child: pw.Text('PHOTO', style: const pw.TextStyle(fontSize: 8))),
-                ),
-                pw.SizedBox(width: 12),
-                pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                  pw.Text('Student: ${s['name']}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
-                  pw.Text('Father: ${s['father'] ?? ''}'),
-                  pw.Text('Class: ${s['class']}    Roll: ${s['roll']}'),
-                  pw.Text('Exam: $selectedExam'),
-                  pw.Text('Session: ${DateTime.now().year}'),
-                ])),
-              ]),
-            ),
+            pw.Text('Student Name: ${s['name']}'),
+            pw.Text('Father Name: ${s['father'] ?? ''}'),
+            pw.Text('Class: ${s['class']}    Roll No: ${s['roll']}'),
+            pw.Text('Exam: $selectedExam     Session: ${DateTime.now().year}'),
             pw.SizedBox(height: 16),
             pw.Table.fromTextArray(
               headers: ['Sr.', 'Subject', 'Total', 'Obtained', '%', 'Grade'],
